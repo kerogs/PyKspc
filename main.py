@@ -1,11 +1,14 @@
 import argparse
+from colorama import Fore, init
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from hashlib import sha256
 import os
 
 # Definition of the version
-PYKSPC_VERSION = "1.1"
+PYKSPC_VERSION = "1.2-sh4"
+
+init(autoreset=True)
 
 # Utilities for encryption and decryption
 def encrypt_file(file_path, key, keep_metadata, keep_format, keep_info, return_bool):
@@ -35,12 +38,12 @@ def encrypt_file(file_path, key, keep_metadata, keep_format, keep_info, return_b
         if return_bool:
             print("true")
         else:
-            print(f"File encrypted and saved to {new_file_path}")
+            print(Fore.GREEN + "[+] File encrypted and saved to " + new_file_path)
     except Exception as e:
         if return_bool:
             print("false")
         else:
-            print(f"Error during encryption: {e}")
+            print(Fore.RED + f"[-] Error during encryption: {e}")
 
 def decrypt_file(file_path, key, keep_metadata, keep_format, keep_info, return_bool):
     try:
@@ -68,12 +71,12 @@ def decrypt_file(file_path, key, keep_metadata, keep_format, keep_info, return_b
         if return_bool:
             print("true")
         else:
-            print(f"File decrypted and saved to {new_file_path}")
+            print(Fore.GREEN + "[+] File decrypted and saved to " + new_file_path)
     except Exception as e:
         if return_bool:
             print("false")
         else:
-            print(f"Error during decryption: {e}")
+            print(Fore.RED + f"[-] Error during decryption: {e}")
 
 # Function to update the PyKspc field in the metadata
 def update_metadata_info(metadata, is_encrypted):
@@ -118,36 +121,131 @@ def extract_metadata(data):
         return metadata, content
     return b'', data
 
-# Main Program
-def main():
-    parser = argparse.ArgumentParser(description='File encryption/decryption tool with AES-256')
-    parser.add_argument('file', type=str, nargs='?', help='Path to the file to be processed')
-    parser.add_argument('key', type=str, nargs='?', help='Encryption key (AES-256)')
-    parser.add_argument('-e', '--encode', action='store_true', help='Encode the file')
-    parser.add_argument('-d', '--decode', action='store_true', help='Decode the file')
-    parser.add_argument('-k', '--keep_format', action='store_true', help="Do not change the file format after encryption")
-    parser.add_argument('-M', '--keep_metadata', action='store_true', help="Keep the file's metadata")
-    parser.add_argument('-Mi', '--keep_info', action='store_true', help="Keep the PyKspc status information during encryption")
-    parser.add_argument('-b', '--boolean', action='store_true', help="Return only true or false for success")
-    parser.add_argument('-v', '--version', action='store_true', help="Display the program version")
+# Custom help display function
+def print_full_help(parser, subparsers):
+    parser.print_help()  # Display general help
+    print("\nSubcommands and specific options:\n")
+    
+    # Display help for each subcommand
+    for subcommand, subparser in subparsers.items():
+        print("\n" + "-"*40 + "\n")
+        print(f"Command '{subcommand}':")
+        print(subparser.format_help())
 
+# main
+def main():
+    # Set up the main parser with help disabled
+    parser = argparse.ArgumentParser(
+        description="PyKspc - File encryption/decryption tool with AES-256",
+        add_help=False
+    )
+    parser.add_argument('-v', '--version', action='version', version=f"PyKspc {PYKSPC_VERSION}")
+    parser.add_argument('-h', '--help', action='store_true', help="Show full help")
+
+    # Create subcommands
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    
+    # Dictionary to store subparsers (for custom help)
+    subparsers_dict = {}
+
+    # Encrypt subcommand
+    encrypt_parser = subparsers.add_parser(
+        'encrypt', help="Encrypt a file with AES-256"
+    )
+    encrypt_parser.add_argument('file', type=str, help="Path to the file to be encrypted")
+    encrypt_parser.add_argument('key', type=str, help="Encryption key (AES-256)")
+    encrypt_parser.add_argument('-k', '--keep_format', action='store_true', help="Do not change the file format after encryption")
+    encrypt_parser.add_argument('-M', '--keep_metadata', action='store_true', help="Preserve the file's metadata")
+    encrypt_parser.add_argument('-Mi', '--keep_info', action='store_true', help="Keep PyKspc status information during encryption")
+    encrypt_parser.add_argument('-b', '--boolean', action='store_true', help="Return only true or false upon success")
+    subparsers_dict['encrypt'] = encrypt_parser
+
+    # Decrypt subcommand
+    decrypt_parser = subparsers.add_parser(
+        'decrypt', help="Decrypt a file with AES-256"
+    )
+    decrypt_parser.add_argument('file', type=str, help="Path to the file to be decrypted")
+    decrypt_parser.add_argument('key', type=str, help="Decryption key (AES-256)")
+    decrypt_parser.add_argument('-k', '--keep_format', action='store_true', help="Do not change the file format after decryption")
+    decrypt_parser.add_argument('-M', '--keep_metadata', action='store_true', help="Preserve the file's metadata")
+    decrypt_parser.add_argument('-Mi', '--keep_info', action='store_true', help="Keep PyKspc status information during decryption")
+    decrypt_parser.add_argument('-b', '--boolean', action='store_true', help="Return only true or false upon success")
+    subparsers_dict['decrypt'] = decrypt_parser
+
+    # Genkey subcommand
+    genkey_parser = subparsers.add_parser(
+        'genkey', help="Generate a unique key"
+    )
+    genkey_parser.add_argument('-l', '--key-length', type=int, default=32, help="Key length (default 32 for AES-256)")
+    genkey_parser.add_argument('-b', '--boolean', action='store_true', help="Return only key or false upon success")
+    genkey_parser.add_argument('-s', '--save_key', action='store_true', help="Indicates whether the key should be saved in a file.")
+    genkey_parser.add_argument('-f', '--file', type=str, default="./key.ksp", help="Path to file where key is saved (default: ./key.ksp)")
+    genkey_parser.add_argument('-a', '--append', action='store_true', help="Add the key to the end of the file instead of overwriting it")
+    genkey_parser.add_argument('-ep', '--env_param', type=str, help="Name of the parameter to save the key as (format: name=(key))")
+    subparsers_dict['genkey'] = genkey_parser
+    
+    # Analyse des arguments
     args = parser.parse_args()
 
-    # Display the version if -v is specified
-    if args.version:
-        print(f"PyKspc Version: {PYKSPC_VERSION}")
+    if args.help:
+        print_full_help(parser, subparsers_dict)
         return
 
-    # If -Mi is specified, also enable -M
-    if args.keep_info:
-        args.keep_metadata = True
-
-    if args.encode:
+    # Call functions according to the specified subcommand
+    if args.command == 'encrypt':
         encrypt_file(args.file, args.key, args.keep_metadata, args.keep_format, args.keep_info, args.boolean)
-    elif args.decode:
+    elif args.command == 'decrypt':
         decrypt_file(args.file, args.key, args.keep_metadata, args.keep_format, args.keep_info, args.boolean)
+    # Traitement de la commande genkey
+    elif args.command == 'genkey':
+        if args.key_length <= 0:
+            if args.boolean:
+                print("false")
+            else:
+                print(f"{Fore.RED}[-] Please specify a valid key length")
+        else:
+            key = os.urandom(args.key_length)  # Génération de la clé
+            if args.save_key:
+                mode = 'a' if args.append else 'w'  # Déterminer le mode d'ouverture du fichier
+
+                try:
+                    with open(args.file, mode) as f:
+                        # Formater la clé selon l'option d'argument
+                        if args.env_param:
+                            # Si un nom de paramètre est donné, formater comme (param_name)=(key)
+                            line_to_write = f"{args.env_param}={key.hex()}\n"
+                        else:
+                            # Si aucun paramètre, utiliser KSPC_KEY=(key)
+                            line_to_write = f"KSPC_KEY={key.hex()}\n"
+
+                        f.write(line_to_write)  # Écrire dans le fichier
+
+                    # Vérification de la création du fichier
+                    if os.path.isfile(args.file):
+                        if args.boolean:
+                            print("true")
+                        else:
+                            action = "appended to" if args.append else "saved to"
+                            print(f"{Fore.GREEN}[+] Generated key (hex) {action}: {args.file}")
+                    else:
+                        if args.boolean:
+                            print("false")
+                        else:
+                            print(f"{Fore.RED}[-] Failed to create the file: {args.file}")
+
+                except Exception as e:
+                    if args.boolean:
+                        print("false")
+                    else:
+                        print(f"{Fore.RED}[-] Error saving key to file: {e}")
+            else:
+                # Afficher la clé générée
+                if args.boolean:
+                    print(key.hex())
+                else:
+                    print(f"{Fore.GREEN}[+] Generated key (hex): {key.hex()}")
     else:
-        print("Please specify an action: -e (encode) or -d (decode)")
+        print(f"{Fore.RED}[-] use -h or --help for help")
 
 if __name__ == "__main__":
     main()

@@ -14,8 +14,24 @@ pykspc -h
 ```
 
 ### example (cli)
+
+#### Encrypt
 ```sh
-pykspc ".\main.py" "./test.ksp" "91b62c5e9f438fa18d03e8d486f37c5f746098c2fd9854c74f85b65ec6f71ae9" -e -k -Mi
+pykspc encrypt "./file.txt" 91b62c5e9f438fa18d03e8d486f37c5f746098c2fd9854c74f85b65ec6f71ae9 -k
+```
+#### Decrypt
+```sh
+pykspc decrypt "./file.txt" 91b62c5e9f438fa18d03e8d486f37c5f746098c2fd9854c74f85b65ec6f71ae9 -k
+```
+
+#### Genkey
+```
+pykspc genkey
+```
+
+#### Help
+```sh
+pykspc -h
 ```
 
 ### example (with php)
